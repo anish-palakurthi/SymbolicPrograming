@@ -10,45 +10,44 @@
 ; (load-file "cs378.clj")(load-file "proj1/asg1.clj")(load-file "proj1/test1.clj")(load-file "proj1/onetest.clj")(load-file "proj1/test1b.clj")
 
 (defn sum [lst]
-  ;; simple structural recursion with destructuring
-  (if-let [[h & t] (seq lst)]
-    (+ h (sum t))
-    0))
+  ;; simple recursion 
+  (if (empty? lst)
+    0
+    (+ (first lst) (sum (rest lst)))))
+
 
 (defn sumtr [lst]
-  ;; explicit loop/recur accumulator form
-  (loop [xs lst, acc 0]
-    (if (seq xs)
-      (recur (rest xs) (+ acc (first xs)))
-      acc)))
+  (loop [l lst
+         acc 0]
+    (if (empty? l)
+      acc
+      (recur (rest l) (+ acc (first l))))))
 
 (defn sumr [lst]
   ;; reduce with 0 seed is safe on empty lists
   (reduce + 0 lst))
 
 (defn sumsq [lst]
-  (if-let [[h & t] (seq lst)]
-    (+ (* h h) (sumsq t))
-    0))
+  (if (empty? lst)
+    0
+    (+ (* (first lst) (first lst)) (sumsq (rest lst)))))
 
 (defn sumsqtr [lst]
-  (loop [xs lst, acc 0]
-    (if-let [[h & t] (seq xs)]
-      (recur t (+ acc (* h h)))
-      acc)))
+  (loop [l lst
+         acc 0]
+    (if (empty? l)
+      acc
+      (recur (rest l) (+ acc (square (first l)))))))
 
 (defn sumsqmr [lst]
-  (reduce + 0 (map #(* % %) lst)))
+  (reduce + (map square lst)))
 
 (defn stdev [lst]
-  ;; population stdev; coerce counts to double to avoid ratio surprises
-  (let [n (count lst)]
-    (when (zero? n) (throw (Exception. "stdev of empty list")))
-    (let [n' (double n)
-          mean (/ (reduce + lst) n')
-          mean2 (/ (reduce + (map #(* % %) lst)) n')
-          var (- mean2 (* mean mean))]
-      (Math/sqrt var))))
+  (let [n (length lst)
+        mean (/ (sum lst) n)
+        mean-square (/ (sumsq lst) n)
+        variance (- mean-square (square mean))]
+    (sqrt variance)))
 
 (def lstnum '(76 85 71 83 84 89 96 84 98 97 75 85 92 64 89 87 90 65 100))
 
@@ -56,38 +55,29 @@
 ;; Note: these treat lists as mathematical sets (no ordering guarantees).
 
 (defn intersection [x y]
-  (let [ys (set y)]
-    (loop [xs x, acc '(), seen #{}]
-      (if (seq xs)
-        (let [a (first xs)]
-          (if (and (ys a) (not (seen a)))
-            (recur (rest xs) (cons a acc) (conj seen a))
-            (recur (rest xs) acc seen)))
-        (reverse acc)))))
+  (if (empty? x)
+    '()
+    (if (some #(= (first x) %) y)
+      (cons (first x)
+            (intersection (rest x) y))
+      (intersection (rest x) y))))
 
 (defn union [lsta lstb]
-  (let [seen-step (fn [state v]
-                    (if ((:seen state) v)
-                      state
-                      (-> state
-                          (update :out conj v)
-                          (update :seen conj v))))]
-    (let [{:keys [out]}
-          (reduce seen-step {:out [] :seen #{}} (concat lsta lstb))]
-      (if (empty? out)
-        '()
-        (seq out)))))
+  (letfn [(helper [a b acc]
+            (cond
+              (empty? a) (reduce #(if (some #{%2} %1) %1 (cons %2 %1)) acc b)
+              (some #(= (first a) %) acc) (helper (rest a) b acc)
+              :else (helper (rest a) b (cons (first a) acc))))]
+    (helper lsta lstb '())))
 
 
 (defn set-difference [lsta lstb]
-  (let [bys (set lstb)]
-    (loop [xs lsta, acc '(), seen #{}]
-      (if (seq xs)
-        (let [a (first xs)]
-          (if (or (bys a) (seen a))
-            (recur (rest xs) acc seen)
-            (recur (rest xs) (cons a acc) (conj seen a))))
-        (reverse acc)))))
+  (letfn [(helper [a b acc]
+            (cond
+              (empty? a) acc
+              (some #(= (first a) %) b) (helper (rest a) b acc)
+              :else (helper (rest a) b (cons (first a) acc))))]
+    (helper lsta lstb '())))
 
 ;; ---------- Pascal/binomial row ----------
 
